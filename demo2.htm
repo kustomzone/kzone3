@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html>
+  
+  <head>
+	<meta charset="utf-8">
+	
+	<title>LiveCoder3</title>
+	
+	<meta http-equiv="cache-control" content="no-cache">
+	<meta http-equiv="pragma" content="no-cache">
+	
+	<link rel="stylesheet" href="lib/css/body.css">
+	
+	<!-- threejs,jquery,lively,stats,scoller -->
+	<script src="http://kustomzone.github.io/js/three.js"></script>
+	<script src="http://kustomzone.github.io/js/jquery.js"></script>
+	<script src="http://kustomzone.github.io/js/stats.js"></script>
+	<script src="http://kustomzone.github.io/js/scroller.js"></script>
+	<script src="http://kustomzone.github.io/js/lively.vm.dev.js"></script>
+	<script src="http://kustomzone.github.io/js/lively.ast.dev.js"></script>
+	
+  </head>
+  
+  <body style="margin: 0;">
+  
+    <!-- ng-app="angular-debug-bar" -->
+  
+    <progress value="0"></progress>
+	
+	<!-- APPS -->
+	
+	<!--ace editor-->
+	<script type="text/javascript" src="app/ace/ace-bundle.js"></script>
+	<script type="text/javascript" src="app/ace/ext-language_tools.js"></script>
+	<script type="text/javascript" src="app/ace/keybinding-emacs.js"></script>
+	
+	<!--three-->
+	<script type="text/javascript" src="app/three/OrbitControls.js"></script>
+	<script type="text/javascript" src="app/three/VRControls.js"></script>
+	<script type="text/javascript" src="app/three/TransformControls.js"></script>
+	<script type="text/javascript" src="app/three/VREffect.js"></script>
+	<script type="text/javascript" src="app/three/threex.domevents.js"></script>
+	<script type="text/javascript" src="app/three/threex.videotexture.js"></script>
+	<script type="text/javascript" src="app/three/threex.webcamtexture.js"></script>
+	
+	<!-- PlaneGeometry -->
+	<!-- script type="text/javascript" src="app/three/PlaneBufferGeometry.js"></script -->
+	
+	<!--tquery + world.js -->
+	
+	<!-- + instance? -->
+	
+	<script type="text/javascript" src="app/tquery/tquery-world.dev.js"></script>
+	
+	<!-- demo3 tquery-bundle needed? -->
+	<!-- script type="text/javascript" src="app/tquery/tquery-bundle.js"></script -->
+	<!-- script type="text/javascript" src="app/tquery/tquery-all.js"></script -->
+	
+	<!-- paused ----------------------------------------------------------------->
+	
+	<!-- script>
+	tQuery('.myClass').on('click', function(event){
+		console.log("An event of type", event.type, "has been trigger on ", event.target);
+		// If you wish to stop propagation, just do 
+		event.stopPropagation();
+	});
+	
+	tQuery('text').linkify('http://example.com')
+	mesh.on('click', function() { mesh.scale.x *= 2; });
+
+	</script -->
+	
+	<!-- paused ----------------------------------------------------------------->
+	
+	<!-- script type="text/javascript" src="app/lively/lively.lang.dev.js"></script -->
+	
+	<!--codeeditor-3d-->
+	<script type="text/javascript" src="app/three/codeeditor/codeeditor3d.dev.js"></script>
+	<script type="text/javascript" src="app/three/codeeditor/mode-javascript.js"></script>
+	<script type="text/javascript" src="app/three/codeeditor/theme-twilight.js"></script>
+	<script type="text/javascript" src="app/three/codeeditor/keybinding-emacs.js"></script>
+	
+	
+	 <!--ui related-->
+	<script type="text/javascript" src="lib/dat.gui.js"></script>
+	<script type="text/javascript" src="lib/mousetrap.js"></script>
+	<script type="text/javascript" src="lib/mouseevents.js"></script>
+	<script type="text/javascript" src="lib/autocomplete.js"></script>
+	
+	<script type="text/javascript" src="lib/fonts/droid/droid_sans_bold.typeface.js"></script>
+	
+	<!-- SCENE -->
+	
+	<script type="text/javascript" >
+	
+	  var htmlCode = document.documentElement.innerHTML;
+	  var useVR = !!navigator.mozGetVRDevices || !!navigator.getVRDevices;
+	  // var isMac = navigator.userAgent.indexOf("Mac OS X") > -1;
+	  THREE.World.create(document.body, {useOrbitControl: true, useVR: useVR}, function(err, world) {
+		
+		world.startLoop();
+		world.renderer.setClearColor(0x333F47, 1);
+		world.camera.position.set(0,200,1200);
+		world.camera.far = 100000;
+		world.camera.updateProjectionMatrix();
+		
+		// -=-=-=-=-=-=-=-=-=-=-=-=-=-
+		// some geometry to play with
+		// -=-=-=-=-=-=-=-=-=-=-=-=-=-
+		
+		var plane = new THREE.Mesh(
+			new THREE.PlaneBufferGeometry(4000, 4000, 16, 16),
+			new THREE.MeshBasicMaterial({
+			  color: 0x009999, wireframe: true,
+			  side: THREE.DoubleSide})
+		);
+		
+		plane.position.set(plane.position.x / 2, 0, plane.position.z / 2 );
+		plane.rotation.x = Math.PI / 2;
+		world.scene.add(plane);
+		
+		
+		// -=-=-=-=-=-=-=-=-=-
+		// events + controls
+		// -=-=-=-=-=-=-=-=-=-
+		var DOMEvents = THREEx.DomEvents;
+		world.events = new DOMEvents(world.camera, world.renderer.domElement);
+		setupTQuery(world);
+
+		// -=-=-=-=-=-=-=-=-=-
+		// prepare code editor
+		// -=-=-=-=-=-=-=-=-=-
+
+		var codeEditor = new THREE.CodeEditor(world.renderer.domElement, world.events);
+		world.scene.add(codeEditor);
+		
+		codeEditor.position.set(0,700,-1400);
+		codeEditor.aceEditor.keyBinding.addKeyboardHandler(ace.require("ace/keyboard/emacs").handler);
+		
+		var occurStartCommand = ace.require("ace/commands/occur_commands").occurStartCommand;
+		
+		codeEditor.aceEditor.commands.addCommand(occurStartCommand);
+
+		codeEditor.aceEditor.setOptions({
+		  enableBasicAutocompletion: true,
+		  enableLiveAutocompletion: false,
+		  enableSnippets: true
+		});
+		
+		THREE.CodeEditor.autocomplete.installDynamicJSCompleterInto(codeEditor.aceEditor);
+		
+		if (false) {
+		  codeEditor.aceEditor.setOption("mode", "ace/mode/html");
+		  codeEditor.setValue(htmlCode);
+		} else {
+		  codeEditor.aceEditor.setOption("mode", "ace/mode/javascript");
+
+			var code = "\n"
+			+ "// Shortcuts...\n"
+			+ "\n"
+			+ "// CTRL-SHIFT-V = PASTE\n"
+			+ "\n"
+			+ "// CTRL-I = RUN\n"
+			+ "\n"
+			+ "// CTRL-Z = CUT\n"
+			+ "\n"
+			+ "// CTRL-<less than> = MENU\n"
+			+ "\n"
+			+ "// --------------------------------------------------------\n"
+			+ "\n"
+			+ "// Happy New Year!\n"
+			+ "\n"
+			+ "var shape   = new THREE.TextGeometry('Happy New Year 2015', {font: 'droid sans', weight: 'bold'});\n"
+			+ "var wrapper = new THREE.MeshNormalMaterial({color: 0x00ff00});\n"
+			+ "var welcome = new THREE.Mesh(shape, wrapper);\n"
+			+ "\n"
+			+ "welcome.position.x = -700;\n"
+			+ "welcome.position.y =  820;\n"
+			+ "welcome.position.z = -850;\n"
+  			+ "\n"
+  			+ "world.scene.add(welcome);\n"
+  			+ "\n"
+			+ "// remove text\n"
+  			+ "world.scene.remove(welcome);\n"
+			+ "\n"
+			+ "\n"
+			+ "// -------------------------------------------------------------\n"
+			+ "\n"
+			+ "// Reposition Camera...\n"
+			+ "\n"
+			+ "codeEditor.alignWithCamera('left', world.camera);\n"
+			+ "\n"
+			+ + "// Moon...\n"
+			+ "\n"
+			+ "var sphereGeo = new THREE.SphereGeometry(100, 32, 16);\n"
+			+ "var moonTexture = THREE.ImageUtils.loadTexture( 'lib/moon.jpg' );\n"
+			+ "var moonMaterial = new THREE.MeshBasicMaterial( { map: moonTexture } );\n"
+			+ "var moon = new THREE.Mesh(sphereGeo, moonMaterial);\n"
+			+ "\n"
+			+ "world.scene.add(moon);\n"
+			+ "\n"
+			+ "\n"
+			+ "// animate moon...\n"
+			+ "var render = function () {\n"
+			+ "\n"
+			+ "requestAnimationFrame(render);\n"
+			+ "\n"
+			+ "var time = Date.now() * 0.001;\n"
+			+ "var newX = Math.sin(time * 0.2) * 1;\n"
+			+ "var newY = Math.sin(time * 0.2) * 1;\n"
+			+ "var newZ = Math.cos(time * 0.2) * 1;\n"
+			+ "\n"
+			+ "moon.position.x += newX;\n"
+			+ "moon.position.y -= newY;\n"
+			+ "moon.position.z -= newZ;\n"
+			+ "\n"
+			+ "moon.rotation.x = 100;\n" 
+			+ "moon.rotation.y = 100;\n"
+			+ "moon.rotation.z += .002;\n"
+			+ "\n"
+			+ "world.render(scene, camera);\n"
+			+ "\n"
+			+ "};\n"
+			+ "\n"
+			+ "render();\n"
+			+ "\n"
+			+ "// --------------------------------------------------------\n"
+			+ "\n"
+			+ "// Remove moon...\n"
+			+ "world.scene.remove(moon);\n"
+			+ "\n"
+			+ "// --------------------------------------------------------\n"
+			+ "\n"
+			+ "\n"
+			+ "more...\n"
+			+ "\n"
+			+ "// ------------------------- eof --------------------------\n"
+			+ "\n";
+			
+		  codeEditor.setSize(1164, 1232);
+		  codeEditor.setValue(code);
+		  
+		}
+		
+		if (world.orbitControl) {
+			world.orbitControl.target = codeEditor.position.clone();
+		} else {
+			world.camera.lookAt(codeEditor.position);
+		}
+		
+		// create the plane mesh
+		var css3D    = new THREE.PlaneBufferGeometry();
+		var material = new THREE.MeshBasicMaterial({ wireframe: true });
+		var plane    = new THREE.Mesh( css3D, material );
+	
+		world.scene.add(plane);
+	
+	// ----------- paused --------------------
+	/*
+	
+	// create the dom Element
+	var element = document.createElement( 'img' );
+	element.src = 'images/crate.gif';
+	
+	// create the object3d for this element
+	var cssObject = new THREE.CSS3DObject( element );
+	
+	// we reference the same position and rotation 
+	cssObject.position = plane.position;
+	cssObject.rotation = plane.rotation;
+	// add it to the css scene
+	cssScene.add(cssObject);
+	
+	var cssRenderer = new THREE.CSS3DRenderer();
+	cssRenderer.setSize( window.innerWidth, window.innerHeight );
+	cssRenderer.domElement.style.position = 'absolute';
+	cssRenderer.domElement.style.top = 0;
+	
+	*/
+	
+	// -------------- paused ----------------
+		
+		// For debugging
+		window.world = world;
+		window.codeEditor = codeEditor;
+		
+	  });
+	
+	</script>
+	
+	<script type="text/javascript" src="lib/gui.js"></script>
+	
+	<br><br><br>
+	
+	<!-- angular-debug-bar></angular-debug-bar -->
+	
+  </body>
+</html>
+
