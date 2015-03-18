@@ -1,0 +1,228 @@
+<scene>
+  
+  <spawn position="18 -1 51" />
+  
+  <skybox style="color: linear-gradient(#000, #50a)" />
+  
+  <script src="scripts/puckman.js" />
+  
+  <plane position="20 0.01 20" style="texture-map: url(/images/grid.png); texture-repeat: 1000 1000;" scale="1000 1000 0" rotation="-1.5707 0 0" />
+  
+  <box id="ceiling" position="20 1.5 20" style="visibility: hidden" scale="1000 0.1 1000" />
+  
+  <billboard id="scoreboard" position="18 10 0" scale="15 15 1" rotation="0.7 0 0"><![CDATA[
+	
+  ]]></billboard>
+
+  <script>
+	<![CDATA[
+	
+	// var Mpg = require('mpg123');
+	
+	// var player = new Mpg();
+	
+	// .play(filename)
+	// .on('end', function () {
+	// -- play the next song. 
+	// player.play(nextTrack)
+	// -- etc. 
+	// })
+	
+	var tick = 0,
+		audio = {
+			play : function(soundfile) {
+				// todo...
+			}
+		},
+	  ghosts = [],
+	  scores = {
+		'toastman' : 10
+	  };
+	
+	function updateScores(){
+	  var html = '<div style="font-size: 24px; padding: 32px; height: 100%; background: black; color: white;">' +
+		'<h1 style="margin: 0 0 10px 0; font-size: 1.1em; color: #0af">Scoreboard</h1>' + 
+		'<table style="width: 100%; border-top: 2px solid #0af">';
+		
+	  function byScore(a,b){
+		return scores[b] - scores[a];
+	  }
+	  
+	  Object.keys(scores).sort(byScore).forEach(function(name){
+		html += "<tr style='border-bottom: 1px solid #0af; line-height: 40px;'><td>" + name + "</td><td>" + scores[name] + "</td></tr>";
+	  });
+	  
+	  html += "</table></div>";
+	  
+	  document.getElementById("scoreboard").firstChild.data = html;
+	}
+	
+	function scorePoint(name, count){
+	  scores[name] = scores[name] || 0;
+	  scores[name] += count;
+	}
+	
+	scorePoint('anonymous', 0);
+	
+  	function reset(){
+	  var blocks = document.querySelectorAll(".wall, .pill, .powerup");
+	  blocks.forEach(function(block){
+		document.scene.removeChild(block);
+	  });
+		
+  		var x,y,i;
+		
+  		var map = new Puckman.Map(10);
+		var colors = ["#00FFDE", "#FF0000", "#FFB8DE", "#FFB847"];
+		
+  		for (x=0;x<20;x++) {
+  			for (y=0;y<20;y++) {
+  				var piece = Puckman.MAP[y][x];
+				
+  				if (piece===0) {
+  					var box = document.createElement("box");
+  					box.style.color = "#027";
+					box.className = "wall";
+  					box.position = new Vector(x, 0.25, y).multiplyScalar(2);
+  					box.scale = new Vector(2,1,2);
+  					document.scene.appendChild(box);
+					box = document.createElement("box");
+					box.style.color = "#05f";
+					box.className = "wall";
+					box.collision = "none";
+					box.position = new Vector(x, 0.25, y).multiplyScalar(2);
+					box.scale = new Vector(2.1,0.1,2.1);
+					document.scene.appendChild(box);
+  				} else if (piece===1) {
+  					// pill
+  					(function(x,y) {
+	  					var box = document.createElement("box");
+	  					box.style.color = "#eee";
+						box.className = "pill";
+	  					box.style.collisionResponse = "false";
+	  					box.position = new Vector(x, 0.25, y).multiplyScalar(2);
+	  					box.scale = new Vector(0.25,0.25,0.25);
+	  					document.scene.appendChild(box);
+	  					box.addEventListener("collide", function(e){
+							scorePoint(e.player.name || "anonymous", 10);
+	  						document.scene.removeChild(box);
+	  					});
+	  				})(x,y);
+  				} else if (piece==4) {
+  					(function(x,y) {
+	  					// power up
+	  					var box = document.createElement("box");
+	  					box.className = "powerup";
+	  					box.style.color = "#eee";
+	  					box.style.collisionResponse = "false";
+	  					box.position = new Vector(x, 0.25, y).multiplyScalar(2);
+	  					box.scale = new Vector(0.5,0.5,0.5);
+	  					document.scene.appendChild(box);
+						box.addEventListener("collide", function(e) {
+							scorePoint(e.player.name || "anonymous", 50);
+	  						document.scene.removeChild(box);
+							ghosts.forEach(function(ghost){
+								ghost.makeEatable();
+							});
+	  					})
+  					})(x,y);
+  				}
+  			}
+  		}
+		
+		ghosts = [];
+		
+  		colors.forEach(function(color){
+  			var ghost = new Ghost({
+  				getTick:function(){ 
+  					return tick;
+  				}
+  			}, map, color);
+			
+  			ghost.reset();
+			
+			var box = document.createElement("model");
+			box.src = "/models/ghost.obj";
+			box.style.collisionResponse = "false";
+			box.scale = new Vector(0.75, 0.75, 0.75);
+			box.addEventListener('collide', function(e){
+	  		if (ghost.isVunerable()) {
+			  console.log((e.player.name || "Anonymous") + " ate a ghost!");
+			  
+			  // todo - score is 50 * number of ghosts eaten in this vulnerability phase
+			  scorePoint(e.player.name || "anonymous", 50);
+			  audio.play("eatghost");
+	  			ghost.eat();
+	  		} else if(ghost.isDangerous()) {
+			audio.play("die");
+			e.player.respawn("you were eaten by a hungry hungry ghost");
+		  }
+	  	});
+		
+	  	document.scene.appendChild(box);
+		
+	  	ghost.box = box;
+  		ghosts.push(ghost);
+		ghost.move();
+		
+	  });
+  	}
+
+	setInterval(function(){
+	  document.querySelectorAll("box.powerup").forEach(function(box){
+		box.rotation.y += 1;
+	  });
+	}, 1000 / 5);
+	
+	setInterval(function(){
+	  updateScores();
+	}, 1000 * 3);
+	
+	setInterval(function(){
+	  tick++;
+	  
+	  ghosts.forEach(function(ghost){
+		ghost.move();
+		ghost.draw();
+		ghost.box.position = new Vector(ghost.getPosition().x / 5, 0.25, ghost.getPosition().y / 5);
+		ghost.box.rotation.y = ghost.getDirection();
+		ghost.box.style.color = ghost.getColour();
+	  });
+	}, 1000 / Puckman.FPS);
+	
+  	reset();
+	
+	// Can't get this to work :'(
+	
+	/*
+	Puckman.WALLS.forEach(function(wall) {
+	  var coordinates = [];
+	  
+	  wall.forEach(function(w) {
+		coordinates = coordinates.concat([w.move || w.curve || w.line]);
+	  });
+	  
+	  console.log(coordinates);
+	  
+	  var v = new Vector(coordinates[0][0], 0.25, coordinates[0][1]).multiplyScalar(2);
+	  
+	  coordinates.forEach(function(coord) {
+		var nextV = new Vector(coord[0], 0.25, coord[1]).multiplyScalar(2);
+		console.log(v.toArray(), nextV.toArray());
+		var box = document.createElement("box");
+		box.style.color = "#05f";
+		box.position = v;
+		box.scale = new Vector(
+		  Math.max(0.2, Math.abs(nextV.x - v.x)), 1 ,Math.max(0.2, Math.abs(nextV.z - v.z))
+		);
+		document.scene.appendChild(box);
+		console.log("s", box.scale.toArray());
+		v = nextV;
+		
+	  })
+	});
+	*/
+	
+  	]]>
+  </script>
+</scene>
